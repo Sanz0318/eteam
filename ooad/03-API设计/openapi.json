@@ -1,0 +1,258 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "统一权限管理系统 API",
+    "version": "1.0.0",
+    "description": "RBAC0 权限管理接口（RESTful），导入 Apifox 使用。除 login/check 外均需 Authorization: Bearer <token>。"
+  },
+  "servers": [
+    { "url": "http://localhost:8080" }
+  ],
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "summary": "登录",
+        "tags": ["认证"],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "成功，data.token 为 JWT", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": { "summary": "登出", "tags": ["认证"], "responses": { "200": { "description": "成功" } } }
+    },
+    "/api/auth/check": {
+      "get": {
+        "summary": "鉴权检查（接入系统调用，只读查询）",
+        "tags": ["认证"],
+        "parameters": [
+          { "name": "userId", "in": "query", "required": true, "schema": { "type": "integer", "format": "int64" } },
+          { "name": "permissionCode", "in": "query", "required": true, "schema": { "type": "string", "example": "user:create" } }
+        ],
+        "responses": {
+          "200": { "description": "data.allowed 是否允许", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "summary": "用户列表", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "成功", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } } }
+      },
+      "post": {
+        "summary": "新增用户", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserRequest" } } } },
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "summary": "用户详情", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "responses": { "200": { "description": "成功" } }
+      },
+      "put": {
+        "summary": "修改用户", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserRequest" } } } },
+        "responses": { "200": { "description": "成功" } }
+      },
+      "delete": {
+        "summary": "删除用户", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/users/{id}/roles": {
+      "get": {
+        "summary": "查询用户角色", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "responses": { "200": { "description": "成功" } }
+      },
+      "put": {
+        "summary": "整体设置用户角色（传 [] 清空所有角色）", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } } } } },
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/users/{id}/roles/{roleId}": {
+      "delete": {
+        "summary": "移除用户某角色", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } },
+          { "name": "roleId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        ],
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/roles": {
+      "get": {
+        "summary": "角色列表", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "成功" } }
+      },
+      "post": {
+        "summary": "新增角色", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RoleRequest" } } } },
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/roles/{id}": {
+      "get": {
+        "summary": "角色详情", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "responses": { "200": { "description": "成功" } }
+      },
+      "put": {
+        "summary": "修改角色", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RoleRequest" } } } },
+        "responses": { "200": { "description": "成功" } }
+      },
+      "delete": {
+        "summary": "删除角色", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/roles/{id}/permissions": {
+      "get": {
+        "summary": "查询角色权限", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "responses": { "200": { "description": "成功" } }
+      },
+      "put": {
+        "summary": "整体设置角色权限", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } } } } },
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/roles/{id}/permissions/{permissionId}": {
+      "delete": {
+        "summary": "移除角色某权限", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } },
+          { "name": "permissionId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        ],
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/permissions": {
+      "get": {
+        "summary": "权限列表", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "成功" } }
+      },
+      "post": {
+        "summary": "新增权限", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PermissionRequest" } } } },
+        "responses": { "200": { "description": "成功" } }
+      }
+    },
+    "/api/permissions/{id}": {
+      "get": {
+        "summary": "权限详情", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "responses": { "200": { "description": "成功" } }
+      },
+      "put": {
+        "summary": "修改权限", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PermissionRequest" } } } },
+        "responses": { "200": { "description": "成功" } }
+      },
+      "delete": {
+        "summary": "删除权限", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
+        "responses": { "200": { "description": "成功" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "integer", "example": 200 },
+          "message": { "type": "string", "example": "ok" },
+          "data": { "type": "object" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "example": "admin" },
+          "password": { "type": "string", "example": "123456" }
+        }
+      },
+      "UserRequest": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string" },
+          "password": { "type": "string" },
+          "nickname": { "type": "string" },
+          "status": { "type": "integer", "example": 1 }
+        }
+      },
+      "RoleRequest": {
+        "type": "object",
+        "properties": {
+          "roleName": { "type": "string" },
+          "roleCode": { "type": "string" },
+          "level": { "type": "integer", "example": 0 },
+          "description": { "type": "string" },
+          "status": { "type": "integer", "example": 1 }
+        }
+      },
+      "PermissionRequest": {
+        "type": "object",
+        "properties": {
+          "permissionName": { "type": "string" },
+          "resource": { "type": "string" },
+          "operation": { "type": "string" },
+          "permissionCode": { "type": "string", "example": "order:delete" },
+          "description": { "type": "string" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "username": { "type": "string" },
+          "nickname": { "type": "string" },
+          "status": { "type": "integer" }
+        }
+      },
+      "Role": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "roleName": { "type": "string" },
+          "roleCode": { "type": "string" },
+          "level": { "type": "integer" },
+          "description": { "type": "string" },
+          "status": { "type": "integer" }
+        }
+      },
+      "Permission": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "permissionName": { "type": "string" },
+          "resource": { "type": "string" },
+          "operation": { "type": "string" },
+          "permissionCode": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    }
+  }
+}
