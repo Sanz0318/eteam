@@ -2,255 +2,1517 @@
   "openapi": "3.0.3",
   "info": {
     "title": "统一权限管理系统 API",
-    "version": "1.0.0",
-    "description": "RBAC0 权限管理接口（RESTful），导入 Apifox 使用。除 login/check 外均需 Authorization: Bearer <token>。"
+    "version": "1.1.0",
+    "description": "RBAC0 权限管理接口（RESTful），可导入 Apifox/Swagger。\n\n认证：除 login/logout/check 外，均需请求头 `Authorization: Bearer <token>`。\n统一响应体：`{ code, message, data }`。\n错误约定：HTTP 状态码与 body.code 语义一致（200 成功 / 400 参数或业务错误 / 401 未认证 / 404 不存在 / 500 服务错误）；鉴权检查永不因权限不足报错，未命中即 `allowed:false`（默认拒绝）。"
   },
   "servers": [
-    { "url": "http://localhost:8080" }
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "tags": [
+    {
+      "name": "认证",
+      "description": "登录/登出/鉴权检查"
+    },
+    {
+      "name": "用户管理",
+      "description": "用户 CRUD 与用户-角色分配（UA）"
+    },
+    {
+      "name": "角色管理",
+      "description": "角色 CRUD 与角色-权限分配（PA）"
+    },
+    {
+      "name": "权限管理",
+      "description": "权限 CRUD（权限 = 资源 + 操作）"
+    }
   ],
   "paths": {
     "/api/auth/login": {
       "post": {
+        "tags": [
+          "认证"
+        ],
         "summary": "登录",
-        "tags": ["认证"],
+        "description": "校验账号密码与用户状态，成功返回 JWT。",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
         },
         "responses": {
-          "200": { "description": "成功，data.token 为 JWT", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } }
+          "200": {
+            "description": "成功，data.token 为 JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LoginData"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
     "/api/auth/logout": {
-      "post": { "summary": "登出", "tags": ["认证"], "responses": { "200": { "description": "成功" } } }
+      "post": {
+        "tags": [
+          "认证"
+        ],
+        "summary": "登出",
+        "description": "JWT 无状态实现，登出由客户端销毁本地 token，服务端无状态可清。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "/api/auth/check": {
       "get": {
-        "summary": "鉴权检查（接入系统调用，只读查询）",
-        "tags": ["认证"],
+        "tags": [
+          "认证"
+        ],
+        "summary": "鉴权检查（接入系统调用）",
+        "description": "只读查询：沿 用户→(UA)→角色→(PA)→权限 单条联表 COUNT 判定。未命中/用户不存在/停用均返回 allowed:false（默认拒绝），不会返回 4xx。",
         "parameters": [
-          { "name": "userId", "in": "query", "required": true, "schema": { "type": "integer", "format": "int64" } },
-          { "name": "permissionCode", "in": "query", "required": true, "schema": { "type": "string", "example": "user:create" } }
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "permissionCode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "user:create"
+          }
         ],
         "responses": {
-          "200": { "description": "data.allowed 是否允许", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } }
+          "200": {
+            "description": "data.allowed 是否允许",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CheckData"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
     "/api/users": {
       "get": {
-        "summary": "用户列表", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
-        "responses": { "200": { "description": "成功", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } } }
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "用户列表",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/User"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
       },
       "post": {
-        "summary": "新增用户", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserRequest" } } } },
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "新增用户",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "账号唯一；密码 BCrypt 加密存储；新用户默认无角色无权限（初始无权限）。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功，返回创建后的用户",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
       }
     },
     "/api/users/{id}": {
       "get": {
-        "summary": "用户详情", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "用户详情",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       },
       "put": {
-        "summary": "修改用户", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserRequest" } } } },
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "修改用户",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "description": "整体替换（幂等）。修改昵称/状态；传入 password 即重置密码。置 status=0 后鉴权立即拒绝。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       },
       "delete": {
-        "summary": "删除用户", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "删除用户",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "description": "删除用户并解除其 UA 关系（幂等）。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       }
     },
     "/api/users/{id}/roles": {
       "get": {
-        "summary": "查询用户角色", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "查询用户角色",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Role"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       },
       "put": {
-        "summary": "整体设置用户角色（传 [] 清空所有角色）", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } } } } },
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "用户管理"
+        ],
+        "summary": "整体设置用户角色",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "description": "整体替换该用户的角色集合（幂等）；传 [] 清空全部角色 = 跨部门权限“杀死重开”。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdArray"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功，返回更新后的用户",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       }
     },
     "/api/users/{id}/roles/{roleId}": {
       "delete": {
-        "summary": "移除用户某角色", "tags": ["用户管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } },
-          { "name": "roleId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        "tags": [
+          "用户管理"
         ],
-        "responses": { "200": { "description": "成功" } }
+        "summary": "移除用户某角色",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          },
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       }
     },
     "/api/roles": {
       "get": {
-        "summary": "角色列表", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "角色列表",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Role"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
       },
       "post": {
-        "summary": "新增角色", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RoleRequest" } } } },
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "新增角色",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "roleCode 唯一；level 为可自定义管理员等级；新角色默认无权限。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Role"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
       }
     },
     "/api/roles/{id}": {
       "get": {
-        "summary": "角色详情", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "角色详情",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Role"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       },
       "put": {
-        "summary": "修改角色", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RoleRequest" } } } },
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "修改角色",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "description": "整体替换（幂等）。置 status=0 后，关联用户即时失去该角色权限。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Role"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       },
       "delete": {
-        "summary": "删除角色", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "删除角色",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "description": "删除角色并解除相关 UA/PA 关系（幂等），关联用户即时失去该角色权限。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       }
     },
     "/api/roles/{id}/permissions": {
       "get": {
-        "summary": "查询角色权限", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "查询角色权限",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Permission"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       },
       "put": {
-        "summary": "整体设置角色权限", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } } } } },
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "整体设置角色权限",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "description": "整体替换该角色的权限集合（幂等）；传 [] 清空。拥有该角色的用户权限即时更新。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdArray"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Role"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       }
     },
     "/api/roles/{id}/permissions/{permissionId}": {
       "delete": {
-        "summary": "移除角色某权限", "tags": ["角色管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } },
-          { "name": "permissionId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } }
+        "tags": [
+          "角色管理"
         ],
-        "responses": { "200": { "description": "成功" } }
+        "summary": "移除角色某权限",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          },
+          {
+            "name": "permissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       }
     },
     "/api/permissions": {
       "get": {
-        "summary": "权限列表", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "权限管理"
+        ],
+        "summary": "权限列表",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "可按 resource 分组展示。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Permission"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
       },
       "post": {
-        "summary": "新增权限", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PermissionRequest" } } } },
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "权限管理"
+        ],
+        "summary": "新增权限",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "权限 = 资源 + 操作；permissionCode 唯一，形如 resource:operation。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Permission"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
       }
     },
     "/api/permissions/{id}": {
       "get": {
-        "summary": "权限详情", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "权限管理"
+        ],
+        "summary": "权限详情",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Permission"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       },
       "put": {
-        "summary": "修改权限", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PermissionRequest" } } } },
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "权限管理"
+        ],
+        "summary": "修改权限",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Permission"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       },
       "delete": {
-        "summary": "删除权限", "tags": ["权限管理"], "security": [{ "bearerAuth": [] }],
-        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "format": "int64" } } ],
-        "responses": { "200": { "description": "成功" } }
+        "tags": [
+          "权限管理"
+        ],
+        "summary": "删除权限",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idPath"
+          }
+        ],
+        "description": "删除权限并解除相关 PA 关系（幂等），相关角色的该权限即时失效。",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       }
     }
   },
   "components": {
     "securitySchemes": {
-      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
     },
     "schemas": {
       "ApiResponse": {
         "type": "object",
         "properties": {
-          "code": { "type": "integer", "example": 200 },
-          "message": { "type": "string", "example": "ok" },
-          "data": { "type": "object" }
+          "code": {
+            "type": "integer",
+            "example": 200,
+            "description": "业务状态码，与 HTTP 状态码语义一致"
+          },
+          "message": {
+            "type": "string",
+            "example": "ok"
+          },
+          "data": {
+            "description": "业务数据，结构随接口而定；无数据时为 null"
+          }
         }
       },
       "LoginRequest": {
         "type": "object",
-        "required": ["username", "password"],
+        "required": [
+          "username",
+          "password"
+        ],
         "properties": {
-          "username": { "type": "string", "example": "admin" },
-          "password": { "type": "string", "example": "123456" }
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "example": "admin"
+          },
+          "password": {
+            "type": "string",
+            "example": "123456"
+          }
+        }
+      },
+      "LoginData": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "JWT 凭证",
+            "example": "eyJhbGciOiJIUzI1NiJ9..."
+          }
+        }
+      },
+      "CheckData": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "boolean",
+            "description": "是否允许；未命中/用户停用或不存在均为 false（默认拒绝）"
+          }
         }
       },
       "UserRequest": {
         "type": "object",
+        "description": "创建时 username/password 必填；修改时只传需要变更的字段（password 传入即重置密码）",
         "properties": {
-          "username": { "type": "string" },
-          "password": { "type": "string" },
-          "nickname": { "type": "string" },
-          "status": { "type": "integer", "example": 1 }
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "登录账号，唯一"
+          },
+          "password": {
+            "type": "string",
+            "description": "明文密码，服务端 BCrypt 加密存储"
+          },
+          "nickname": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "1 启用 / 0 停用",
+            "example": 1
+          }
         }
       },
       "RoleRequest": {
         "type": "object",
+        "description": "创建时 roleName/roleCode 必填；修改时只传需要变更的字段",
         "properties": {
-          "roleName": { "type": "string" },
-          "roleCode": { "type": "string" },
-          "level": { "type": "integer", "example": 0 },
-          "description": { "type": "string" },
-          "status": { "type": "integer", "example": 1 }
+          "roleName": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "roleCode": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "角色编码，唯一",
+            "example": "ORDER_ADMIN"
+          },
+          "level": {
+            "type": "integer",
+            "description": "管理员等级，可自定义，数值越小等级越高",
+            "example": 0
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 1
+          }
         }
       },
       "PermissionRequest": {
         "type": "object",
+        "description": "创建时 permissionName/resource/operation/permissionCode 必填；permissionCode 唯一，形如 resource:operation",
         "properties": {
-          "permissionName": { "type": "string" },
-          "resource": { "type": "string" },
-          "operation": { "type": "string" },
-          "permissionCode": { "type": "string", "example": "order:delete" },
-          "description": { "type": "string" }
+          "permissionName": {
+            "type": "string",
+            "maxLength": 64,
+            "example": "删除订单"
+          },
+          "resource": {
+            "type": "string",
+            "maxLength": 64,
+            "example": "order"
+          },
+          "operation": {
+            "type": "string",
+            "maxLength": 64,
+            "example": "delete"
+          },
+          "permissionCode": {
+            "type": "string",
+            "maxLength": 128,
+            "example": "order:delete"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 255
+          }
         }
+      },
+      "IdArray": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "description": "整体替换语义：传 [1,3] 表示最终恰好拥有 1、3；传 [] 表示清空（跨部门回收）",
+        "example": [
+          1,
+          3
+        ]
       },
       "User": {
         "type": "object",
         "properties": {
-          "id": { "type": "integer", "format": "int64" },
-          "username": { "type": "string" },
-          "nickname": { "type": "string" },
-          "status": { "type": "integer" }
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "description": "1 启用 / 0 停用"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
         }
       },
       "Role": {
         "type": "object",
         "properties": {
-          "id": { "type": "integer", "format": "int64" },
-          "roleName": { "type": "string" },
-          "roleCode": { "type": "string" },
-          "level": { "type": "integer" },
-          "description": { "type": "string" },
-          "status": { "type": "integer" }
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "roleCode": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "Permission": {
         "type": "object",
         "properties": {
-          "id": { "type": "integer", "format": "int64" },
-          "permissionName": { "type": "string" },
-          "resource": { "type": "string" },
-          "operation": { "type": "string" },
-          "permissionCode": { "type": "string" },
-          "description": { "type": "string" }
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "permissionName": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "permissionCode": {
+            "type": "string",
+            "example": "order:delete"
+          },
+          "description": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "idPath": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "参数/业务错误（如唯一性冲突）",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponse"
+            },
+            "example": {
+              "code": 400,
+              "message": "账号已存在",
+              "data": null
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "未认证：缺少/无效/过期 token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponse"
+            },
+            "example": {
+              "code": 401,
+              "message": "token 无效或已过期",
+              "data": null
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "资源不存在",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponse"
+            },
+            "example": {
+              "code": 404,
+              "message": "用户不存在",
+              "data": null
+            }
+          }
         }
       }
     }
